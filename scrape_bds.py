@@ -5,6 +5,8 @@ from __future__ import unicode_literals
 
 import requests as r
 import json
+from bs4 import BeautifulSoup
+
 
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works
 
@@ -32,6 +34,34 @@ headers = {
 
 class NoRedirectException(Exception):
     pass
+
+class BDSScrapedArticle(object):
+    def __init__(self, url):
+        self.description = "a scraped version of a BDS research article"
+        self.title = ""
+        self.abstract = ""
+        self.authors = ""
+        self.fulltext = ""
+        self.references = ""
+        self.pubyear = ""
+        self.methods = ""
+        self.url = url
+        self.soup = None
+
+        self.gen_soup()
+        self.scrape_title()
+
+    def gen_soup(self):
+        html = r.get(self.url, headers=headers).text
+        soup = BeautifulSoup(html, 'html.parser')
+        self.soup = soup
+
+    def scrape_title(self):
+        title_div = self.soup.findAll("h1", { "class" : "highwire-cite-title" })[0] # assume a unique class, and that this is the first result 
+        print("about to try to print the title!")
+        print(title_div.contents)
+        self.title = title_div.contents[0] # The literary uses of high-dimensional space
+
 
 def get_url_from_doi(doi):
     """
@@ -68,17 +98,32 @@ def get_content_from_bds_url(url):
 
 def get_bds_article_from_doi(doi):
     url = get_bds_url_from_doi(doi)
-    article_content = get_content_from_bds_url(url)
-    return article_content
+    bds_scraped_article = BDSScrapedArticle(url)
+    return bds_scraped_article
 
-def get_article_from_doi_issn(doi, issn):
+def get_article_content_from_doi_issn(doi, issn):
     if issn in scrape_html_issns:
-        article_content = get_bds_article_from_doi(doi)
+        url = get_url_from_doi(doi)
+        article_content = extract_content_from_bds_page(url)
+        formated_article_content = format_article_content(article_content)
+        return formated_article_content
     else:
         print("I don't know how to deal with ISSN %s yet", issn)
 
+def ingest_articles_from_issn(issn):
+    dois = get_dois_from_issn(issn)
+    for doi in dois:
+        article_info = get_article_from_doi_issn(doi, issn)
+        print("ingesting into elastic search: ", doi)
+        update_es(article_info)
+        print("ingested")
+
+
 def get_dois_from_issn(issn):
-    "use the crossref api to get dois for a given issn"
+    """
+        use the crossref api to get dois for a given issn
+        we can also ultimatly add in pagination against the crossref api here too.
+    """
     url = "http://api.crossref.org/journals/"+issn+"/works"
     response = r.get(url, headers=headers)
     data = response.json()
@@ -87,5 +132,4 @@ def get_dois_from_issn(issn):
     for item in items:
         doi = item["DOI"]
         dois.append(doi)
-    print(dois)
     return dois
