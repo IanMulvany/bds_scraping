@@ -32,17 +32,14 @@ def get_url_from_doi(doi):
     dx_url = "http://dx.doi.org/" + doi
     response = r.get(dx_url, headers=headers)
     if response.history:
-        print(len(response.history))
         for resp in response.history:
-            print(resp.status_code, resp.url)
-            print("Final destination: ", resp.url)
+            # need to iterate through to get to the final redirect??
+            #TODO: check if this iteration is required
+            status, resp_url = resp.status_code, resp.url
         status, final_url = response.status_code, response.url
-        print(status, final_url)
         return final_url
     else:
         print("Request was not redirected")
-
-    return "hello"
 
 def get_urls_from_issn():
     return "hi"
