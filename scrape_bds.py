@@ -6,14 +6,6 @@ from __future__ import unicode_literals
 import requests as r
 import json
 
-scrape_html_issns = ["2053-9517"]
-
-headers = {
-    'User-Agent': 'Automated BDS Scraper 1.0',
-    'From': 'ian@mulvany.net'  # This is another valid field
-}
-
-
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works
 
 # DOI of an article is: http://dx.doi.org/10.1177/2053951716662054
@@ -28,10 +20,24 @@ headers = {
 #
 # def get_dois_from_issn(issn):
 
+
+
+scrape_html_issns = ["2053-9517"]
+
+headers = {
+    'User-Agent': 'Automated BDS Scraper 1.0',
+    'From': 'ian@mulvany.net'  # This is another valid field
+}
+
+
 class NoRedirectException(Exception):
     pass
 
 def get_url_from_doi(doi):
+    """
+    use requests history function to follow redirects from dx.doi.org
+    pass a doi and get back the publihser url for the article (hopefully!)
+    """
     dx_url = "http://dx.doi.org/" + doi
     response = r.get(dx_url, headers=headers)
     if response.history:
@@ -70,7 +76,6 @@ def get_article_from_doi_issn(doi, issn):
         article_content = get_bds_article_from_doi(doi)
     else:
         print("I don't know how to deal with ISSN %s yet", issn)
-
 
 # response = r.get(url, headers=headers)
 print("getting started")
