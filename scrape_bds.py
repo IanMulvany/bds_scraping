@@ -77,5 +77,15 @@ def get_article_from_doi_issn(doi, issn):
     else:
         print("I don't know how to deal with ISSN %s yet", issn)
 
-# response = r.get(url, headers=headers)
-print("getting started")
+def get_dois_from_issn(issn):
+    "use the crossref api to get dois for a given issn"
+    url = "http://api.crossref.org/journals/"+issn+"/works"
+    response = r.get(url, headers=headers)
+    data = response.json()
+    dois = []
+    items = data["message"]["items"]
+    for item in items:
+        doi = item["DOI"]
+        dois.append(doi)
+    print(dois)
+    return dois
