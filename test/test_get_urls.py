@@ -1,4 +1,6 @@
+import pytest
 from scrape_bds import get_url_from_doi
+from scrape_bds import NoRedirectException
 
 def test_get_url_from_doi():
     """
@@ -11,3 +13,8 @@ def test_get_url_from_doi():
     derived_url = get_url_from_doi(doi)
     print(derived_url)
     assert derived_url == "http://bds.sagepub.com/content/3/1/2053951715621086"
+
+def test_doi_exception():
+    doi = "google.com"
+    with pytest.raises(NoRedirectException):
+        get_url_from_doi(doi)

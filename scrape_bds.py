@@ -28,6 +28,9 @@ headers = {
 #
 # def get_dois_from_issn(issn):
 
+class NoRedirectException(Exception):
+    pass
+
 def get_url_from_doi(doi):
     dx_url = "http://dx.doi.org/" + doi
     response = r.get(dx_url, headers=headers)
@@ -39,7 +42,7 @@ def get_url_from_doi(doi):
         status, final_url = response.status_code, response.url
         return final_url
     else:
-        print("Request was not redirected")
+        raise NoRedirectException("doi did not result in a redirect, probably not getting to publisher conent")
 
 def get_urls_from_issn():
     return "hi"
