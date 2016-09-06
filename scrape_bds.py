@@ -44,12 +44,15 @@ class BDSScrapedArticle(object):
         self.fulltext = ""
         self.references = ""
         self.pubyear = ""
+        self.conclusions = ""
         self.methods = ""
         self.url = url
         self.soup = None
 
         self.gen_soup()
         self.scrape_title()
+        self.scrape_abstract()
+        self.scrape_pubyear()
 
     def gen_soup(self):
         html = r.get(self.url, headers=headers).text
@@ -57,10 +60,27 @@ class BDSScrapedArticle(object):
         self.soup = soup
 
     def scrape_title(self):
-        title_div = self.soup.findAll("h1", { "class" : "highwire-cite-title" })[0] # assume a unique class, and that this is the first result 
-        print("about to try to print the title!")
-        print(title_div.contents)
+        title_div = self.soup.findAll("h1", { "class" : "highwire-cite-title" })[0] # assume a unique class, and that this is the first result
         self.title = title_div.contents[0] # The literary uses of high-dimensional space
+
+    def scrape_abstract(self):
+        abstract = self.soup.findAll("div", { "class" : "section abstract" }, {"id": "abstract-1"})[0] # assume a unique class, and that this is the first result
+        abstract_content = abstract.getText()
+        abstract_content_stripped = abstract_content.lstrip("Abstract")
+        self.abstract = abstract_content_stripped
+
+    def scrape_pubyear(self):
+        cite_md = self.soup.findAll("span", { "class" : "highwire-cite-metadata" })[0] # assume a unique class, and that this is the first result
+        cite_md_text = cite_md.getText()
+        pubyear = cite_md_text.rstrip().split()[-1]
+        self.pubyear = pubyear
+
+        # class="article fulltext-view "
+
+        # class="highwire-citation-authors"
+
+        # class="highwire-cite-metadata" For the "year"
+
 
 
 def get_url_from_doi(doi):
