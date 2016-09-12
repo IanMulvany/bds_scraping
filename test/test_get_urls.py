@@ -5,6 +5,12 @@ from scrape_bds import get_dois_from_issn
 from scrape_bds import BDSScrapedArticle
 import responses
 
+def check_existence_in_large_string(host_string, check_string):
+    if check_string in host_string:
+        return True
+    else:
+        return False
+
 def test_get_url_from_doi():
     """
     http://api.crossref.org/journals/2053-9517/works
@@ -67,6 +73,7 @@ def test_bds_article_scraping_pubyear():
     assert test_article.pubyear == "2015"
 
 @pytest.mark.scraper
+@pytest.mark.author 
 @responses.activate
 def test_bds_article_scraping_authors():
     body_html_response = open("/Users/ian/Dropbox/workbench/scrape-bds/test/2053951715602494_test_content.html", "r").read()
@@ -79,17 +86,6 @@ def test_bds_article_scraping_authors():
 
 @pytest.mark.scraper
 @responses.activate
-def test_bds_article_scraping_pubyear():
-    body_html_response = open("/Users/ian/Dropbox/workbench/scrape-bds/test/2053951715602494_test_content.html", "r").read()
-    responses.add(responses.GET, "http://bds.sagepub.com/content/2/2/2053951715602494",
-                  body=body_html_response,
-                  content_type="txt/html")
-    test_url = "http://bds.sagepub.com/content/2/2/2053951715602494"
-    test_article = BDSScrapedArticle(test_url)
-    assert test_article.pubyear == "2015"
-
-@pytest.mark.scraper
-@responses.activate
 def test_bds_article_scraping_conclusion():
     body_html_response = open("/Users/ian/Dropbox/workbench/scrape-bds/test/2053951715602494_test_content.html", "r").read()
     responses.add(responses.GET, "http://bds.sagepub.com/content/2/2/2053951715602494",
@@ -97,4 +93,24 @@ def test_bds_article_scraping_conclusion():
                   content_type="txt/html")
     test_url = "http://bds.sagepub.com/content/2/2/2053951715602494"
     test_article = BDSScrapedArticle(test_url)
-    assert test_article.conclusion == """But in this brief piece I’m less interested in theses about literary history than in a broader methodological point. I’ve suggested that “Big Data” is not a useful term for humanists. The problem is not just that humanists shudder when they hear the word “data,” or that we lack consensus about the scale that counts as “big,” but that the term fails to register the really important methodological shifts that have opened up boundaries between the humanities and social sciences. What we need instead is a conversation that distinguishes the humanistic applications of different modeling strategies."""
+
+    test_string = """But in this brief piece I’m less interested in theses about literary history than in a broader methodological point. I’ve suggested that “Big Data” is not a useful term for humanists. The problem is not just that humanists shudder when they hear the word “data,” or that we lack consensus about the scale that counts as “big,” but that the term fails to register the really important methodological shifts that have opened up boundaries between the humanities and social sciences. What we need instead is a conversation that distinguishes the humanistic applications of different modeling strategies."""
+
+    assert check_existence_in_large_string(test_article.conclusion ,test_string) == True
+
+@pytest.mark.scraper
+@responses.activate
+def test_bds_article_scraping_fulltext():
+    """
+    this is the same test as the conclusion test, as the fulltext should be a superset of the conclusion content.
+    """
+    body_html_response = open("/Users/ian/Dropbox/workbench/scrape-bds/test/2053951715602494_test_content.html", "r").read()
+    responses.add(responses.GET, "http://bds.sagepub.com/content/2/2/2053951715602494",
+                  body=body_html_response,
+                  content_type="txt/html")
+    test_url = "http://bds.sagepub.com/content/2/2/2053951715602494"
+    test_article = BDSScrapedArticle(test_url)
+
+    test_string = """But in this brief piece I’m less interested in theses about literary history than in a broader methodological point. I’ve suggested that “Big Data” is not a useful term for humanists. The problem is not just that humanists shudder when they hear the word “data,” or that we lack consensus about the scale that counts as “big,” but that the term fails to register the really important methodological shifts that have opened up boundaries between the humanities and social sciences. What we need instead is a conversation that distinguishes the humanistic applications of different modeling strategies."""
+
+    assert check_existence_in_large_string(test_article.fulltext, test_string) == True

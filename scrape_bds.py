@@ -44,7 +44,7 @@ class BDSScrapedArticle(object):
         self.fulltext = ""
         self.references = ""
         self.pubyear = ""
-        self.conclusions = ""
+        self.conclusion = ""
         self.methods = ""
         self.url = url
         self.soup = None
@@ -53,6 +53,9 @@ class BDSScrapedArticle(object):
         self.scrape_title()
         self.scrape_abstract()
         self.scrape_pubyear()
+        self.scrape_conclusion()
+        self.scrape_fulltext()
+        self.scrape_authors()
 
     def gen_soup(self):
         html = r.get(self.url, headers=headers).text
@@ -69,19 +72,33 @@ class BDSScrapedArticle(object):
         abstract_content_stripped = abstract_content.lstrip("Abstract")
         self.abstract = abstract_content_stripped
 
+    def scrape_conclusion(self):
+        conclusion = self.soup.findAll("div", { "class" : "section conclusions" })[0] # assume a unique class, and that this is the first result
+        conclusion_content = conclusion.getText()
+        conclusion_content_stripped = conclusion_content.lstrip("Conclusion")
+        self.conclusion = conclusion_content_stripped
+
+    def scrape_fulltext(self):
+        fulltext = self.soup.findAll("div", { "class" : "fulltext-view" })[0] # assume a unique class, and that this is the first result
+        fulltext_content = fulltext.getText()
+        self.fulltext = fulltext_content
+
     def scrape_pubyear(self):
         cite_md = self.soup.findAll("span", { "class" : "highwire-cite-metadata" })[0] # assume a unique class, and that this is the first result
         cite_md_text = cite_md.getText()
+        print(cite_md_text)
         pubyear = cite_md_text.rstrip().split()[-1]
         self.pubyear = pubyear
 
-        # class="article fulltext-view "
-
-        # class="highwire-citation-authors"
-
-        # class="highwire-cite-metadata" For the "year"
-
-
+    def scrape_authors(self):
+        author_group = self.soup.findAll("div", { "class" : "highwire-cite-authors" })[0] # assume a unique class, and that this is the first result
+        authors = author_group.findAll("span", { "class" : "highwire-citation-author" }) # assume
+        names = []
+        for author in authors:
+            given = author.findAll("span", {"class" :"nlm-given-names"})[0].getText()
+            surname = author.findAll("span", {"class" :"nlm-surname"})[0].getText()
+            names.append(given + " " + surname)
+        self.authors = names
 
 def get_url_from_doi(doi):
     """
