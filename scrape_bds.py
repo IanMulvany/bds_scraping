@@ -6,7 +6,11 @@ from __future__ import unicode_literals
 import requests as r
 import json
 from bs4 import BeautifulSoup
+from elasticsearch import Elasticsearch
+from datetime import datetime
 
+es = Elasticsearch([{'host': 'localhost', 'port': 9200}])
+CURSOR_INDEX = "cursors"
 
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works
 
@@ -155,18 +159,145 @@ def ingest_articles_from_issn(issn):
         update_es(article_info)
         print("ingested")
 
+def extract_dois_from_result(items):
+    dois = []
+    for item in items:
+        print(item)
+        doi = item["DOI"]
+        url = item["URL"]
+        journal = item["container-title"]
+        author = item["author"]
+        title = item["title"]
+        issn = item["ISSN"]
+        pub_online = item["published-print"]["date-parts"][0]
+        pub_online_year = pub_online[0]
+        pub_online_month = pub_online[1]
+        pub_online_day = pub_online[2]
+        pub_online_combined = str(pub_online_year) + "-" + str(pub_online_month) + "-" + str(pub_online_day)
+        print()
+        dois.append(doi)
+
+        request_body = {
+            "issn" : issn,
+            "doi" : doi,
+            "url" : url,
+            "journal" : journal,
+            "author" : author,
+            "title" : title,
+            "pub_online_date" : pub_online_combined,
+            'timestamp': datetime.now()
+        }
+        res = es.index(index="crossref_md", doc_type = "pub_title", body = request_body)
+    return dois
+
+def get_cursor(issn):
+    print(issn)
+
+    query={
+        "query": {
+        "filtered": {
+        "query": {
+          "match_all": {}
+        },
+        "filter":  {
+          "bool": {
+            "must": { "term" : {"issn": issn}
+            }
+          }
+        }
+        }
+        }
+    }
+
+    this_index = CURSOR_INDEX
+    response = es.indices.stats(index=this_index, metric="docs")
+    doc_count = response["indices"][this_index]["total"]["docs"]["count"]
+    if doc_count > 0:
+        response = es.search(index=this_index, body=query, sort="timestamp:desc", size=1, filter_path=['hits.hits._source.cursor'])
+        hit_count = len(response) # we might have an index with values from a different issn, but no cursirs stored for the issn that we are currently looking at.
+        if hit_count > 0:
+            print(response)
+            return_cursor = response["hits"]["hits"][0]["_source"]["cursor"]
+            print(return_cursor)
+            return return_cursor
+        else:
+            return False
+    else:
+        return False
+
+def store_cursor(issn, cursor):
+    this_index = CURSOR_INDEX
+    request_body = {
+        "issn" : issn,
+        "cursor": cursor,
+        'timestamp': datetime.now()
+    }
+    res = es.index(index=this_index, doc_type = "issn_cursor", body = request_body)
+    return True
+
+def create_es_index(indexname, mapping):
+    exist = es.indices.exists(indexname)
+    if not exist:
+        es.indices.create(index=indexname, body=request_body)
 
 def get_dois_from_issn(issn):
     """
         use the crossref api to get dois for a given issn
         we can also ultimatly add in pagination against the crossref api here too.
     """
-    url = "http://api.crossref.org/journals/"+issn+"/works"
+    #TODO: add an a function to look at using paging, via checking for the cursor from elassticsearch
+    #TODO: extend the extraction of this function to push data that we get from this query into elasticsearch, maybe use a decorator for some of this?
+    cursor = get_cursor(issn)
+    if cursor:
+        url = "http://api.crossref.org/journals/"+issn+"/works?cursor=" + cursor
+    else:
+        url = "http://api.crossref.org/journals/"+issn+"/works?cursor=*"
+
+    # first pass
     response = r.get(url, headers=headers)
     data = response.json()
-    dois = []
     items = data["message"]["items"]
-    for item in items:
-        doi = item["DOI"]
-        dois.append(doi)
-    return dois
+    if len(items) > 0:
+        dois = extract_dois_from_result(items)
+        cursor = data["message"]["next-cursor"]
+    else:
+        # exit here, we have no new resutl
+        return []
+
+    # now we page through the result
+    while len(items) > 0:
+        # we are goig to store the last cursor in our DB, as the cursor that is retuned that ends up with 0 results may give us a null result the next time we query our result set.
+        last_cursor = cursor
+        url = "http://api.crossref.org/journals/"+issn+"/works?cursor=" + cursor
+        response = r.get(url, headers=headers)
+        data = response.json()
+        items = data["message"]["items"]
+        dois.extend(extract_dois_from_result(items))
+        cursor = data["message"]["next-cursor"]
+        print(cursor)
+    # we have paged through the results and we have a final cursor from our searching.
+    # we now need to store that cursor for later use.
+    store_cursor(issn, last_cursor)
+    return(dois)
+
+
+request_body = {
+        'mappings': {
+            'issn_cursor': {
+                  "_timestamp":{
+                    "enabled": "true"
+                  },
+                'properties': {
+                    'issn': {'index': 'not_analyzed', 'type': 'string'},
+                    'cursor': {'index': 'not_analyzed', 'type': 'string'},
+                    'datetime': {'index': 'not_analyzed', 'format': 'dateOptionalTime', 'type': 'date'}
+                }}}
+    }
+
+indexname = CURSOR_INDEX
+create_es_index(indexname, request_body)
+# issn = "2053-9517" # Big data and society
+#  issn = "2050-084X" # elife
+issn = "2158-2440" # Sage Open
+dois = get_dois_from_issn(issn)
+print(dois)
