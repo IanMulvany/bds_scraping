@@ -66,23 +66,6 @@ HEADERS = {
     'From': 'ian@mulvany.net'  # This is another valid field
 }
 
-# has_issn_filter = {
-#     "query": {
-#     "filtered": {
-#     "query": {
-#       "match_all": {}
-#     },
-#     "filter":  {
-#       "bool": {
-#         "must": {"term" : {"issn": issn}
-#         }
-#       }
-#     }
-#     }
-#     }
-# }
-
-
 class SageScrapedArticle(object):
     """
     contains content scraped from SAGE Highwire sites.
@@ -162,7 +145,6 @@ class SageScrapedArticle(object):
     def prep_es_rep(self):
         #TODO: complete this function
         self.es_representation = {}
-
 
 def get_author_by_key(item, item_key, request_body):
     ## type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
@@ -349,7 +331,6 @@ def scrape_plos_content(doi):
     # not implemented yet
     return False
 
-
 # def push_scraped_content_into_es(scraped_content):
 #     """
 #     push scrapted content into es
@@ -410,8 +391,6 @@ def scrape_content(issn, doi, fulltext_link, resolved_url, url):
 def push_scraped_content_into_es(scraped_content):
     "populate es with the scraped content"
     return False
-
-
 
 ISSN = "2158-2440" # Sage Open
 ISSN = "2053-9517" # BDS
