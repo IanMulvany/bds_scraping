@@ -387,6 +387,7 @@ def get_dois(issn):
             }
         }
 
+    print(doi_queue)
     dois = []
     if has_docs(doi_queue):
         response = es.search(index=doi_queue, body=query, sort="timestamp:desc", filter_path=['hits.hits._source.DOI'])
