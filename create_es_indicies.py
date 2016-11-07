@@ -15,6 +15,9 @@ def create_es_index(indexname, mapping):
     if not exist:
         es.indices.create(index=indexname, body=request_body)
 
+def delete_es_index(indexname):
+    es.indices.delete(index=indexname)
+
 def create_cursor_index(indexname):
     request_body = {
             'mappings': {
@@ -62,7 +65,6 @@ def create_crossref_index(indexname):
                     }}}
         }
     create_es_index(indexname, request_body)
-
 
 if __name__ == main():
     create_crossref_index(crossref_index)
