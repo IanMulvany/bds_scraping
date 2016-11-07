@@ -181,7 +181,7 @@ def scrape_plos_content(doi):
     return False
 
 def get_item_by_key(item, item_key, request_body):
-    # type: (str, str, Dict[str, str]) -> Dict[str, str]
+    # type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
     "data may be missing in the crossref deposit, so if it's missing we pass back a nul value"
     try:
         # we manage to extract a new value, and we extend the request_body dict
@@ -254,6 +254,7 @@ def map_crossref_bib_to_es(bib_item):
     return request_body
 
 def push_doi_to_queue(item, doi_queue_index):
+    # type(string, string) -> bool
     request_body = {}
     request_body = get_item_by_key(item, "ISSN", request_body)
     request_body = get_item_by_key(item, "DOI", request_body)
@@ -262,11 +263,12 @@ def push_doi_to_queue(item, doi_queue_index):
     return True
 
 def doi_to_queue(doi, doi_queue_index, body):
+    # type(string, string, string) -> bool
     es.index(index=doi_queue_index, doc_type="doi_queue", body=body, id=doi)
     return True
 
 def get_dois(issn, doi_queue_index):
-    # type(string) -> Dict[string]
+    # type(string, string) -> Dict[string]
     """
     use our stored info in es to get the DOIs easily
     but ... what do we do if we are retreiving 50k dois?
