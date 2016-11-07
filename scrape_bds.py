@@ -6,6 +6,8 @@ from datetime import datetime
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
 import settings as settings
+from settings import PLOS_ISSN
+from settings import DOI_QUEUE
 import requests as r
 from common_functions import get_item_by_key
 from common_functions import index_populated
@@ -18,8 +20,8 @@ from es_doi_functions import remove_doi_from_queue
 
 cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX
-doi_queue = settings.DOI_QUEUE
-PLOS_ISSN = settings.PLOS_ISSN
+doi_queue = DOI_QUEUE
+PLOS_ISSN = PLOS_ISSN
 ES = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
 
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works
@@ -345,6 +347,45 @@ def title_data_to_es(issn):
     return True
 
 
+# scraping related functions
+
+# def push_scraped_content_into_es(scraped_content):
+#     """
+#     push scrapted content into es
+#     """
+#     #TODO: complete this fucntion
+#     return False
+
+def is_scraped(doi):
+    "provides a check to see if we already have scraped a url"
+    return False
+
+def scrape_content_via_issn(issn):
+    """
+    get waiting dois and pass them to a scraping function
+    """
+    # Type (str) -> None
+    dois = get_dois(issn, doi_queue_index=doi_queue) # this needs to pull from the queue, and not the title data!
+    for doi in dois:
+        scrape_content_via_doi(issn, doi)
+
+def scrape_content_via_doi(issn, doi):
+    """
+    we check if the content has already been scraped, and if not
+    then we scrape the article.
+    """
+    if is_scraped(doi):
+        # yay, we already have the fulltext!
+        pass
+    else:
+        resolved_url = get_resolved_url(doi) # I only want to generate this when I come to scrape the resource.
+        fulltext_link = ""
+        url = ""
+        scraped_content = scrape_content(issn, doi, fulltext_link, resolved_url, url)
+        push_scraped_content_into_es(scraped_content)
+    # we have now finised working with the DOI so we remove it from the queue
+    remove_doi_from_queue(doi)
+
 def scrape_content(issn, doi, fulltext_link, resolved_url, url):
     """
     make a decision on which content scraping funtion to use
@@ -365,41 +406,11 @@ def scrape_content(issn, doi, fulltext_link, resolved_url, url):
         return False
     return content
 
-# def push_scraped_content_into_es(scraped_content):
-#     """
-#     push scrapted content into es
-#     """
-#     #TODO: complete this fucntion
-#     return False
-
-def is_scraped(doi):
-     return False
-
 def push_scraped_content_into_es(scraped_content):
+    "populate es with the scraped content"
     return False
 
-def scrape_content_via_doi(issn, doi):
-    """
-    we check if the content has already been scraped, and if not
-    then we scrape the article.
-    """
-    if is_scraped(doi):
-        # yay, we already have the fulltext!
-        pass
-    else:
-        resolved_url = get_resolved_url(doi) # I only want to generate this when I come to scrape the resource.
-        fulltext_link = ""
-        url = ""
-        scraped_content = scrape_content(issn, doi, fulltext_link, resolved_url, url)
-        push_scraped_content_into_es(scraped_content)
-    # we have now finised working with the DOI so we remove it from the queue
-    remove_doi_from_queue(doi)
 
-def scrape_content_via_issn(issn):
-    # Type (str) -> None
-    dois = get_dois(issn, doi_queue_index=doi_queue) # this needs to pull from the queue, and not the title data!
-    for doi in dois:
-        scrape_content_via_doi(issn, doi)
 
 ISSN = "2158-2440" # Sage Open
 ISSN = "2053-9517" # BDS
@@ -409,7 +420,7 @@ ISSN = "1461-7315" # new media and society / didn't work, boo
 ISSN = "2221-0989" # International journal of humanities and social science - didn't work, boo
 
 """
-{'reference-count': 0, 'subject': ['Medicine(all)'], 'prefix': 'http://id.crossref.org/prefix/10.1136', 'issued': {'date-parts': [[2015, 10]]}, 'publisher': 'BMJ', 'issue': '10', 'container-title': ['BMJ Open'], 'short-container-title': [], 'created': {'date-parts': [[2015, 10, 29]], 'timestamp': 1446087914000, 'date-time': '2015-10-29T03:05:14Z'}, 'volume': '5', 'short-title': [], 'indexed': {'date-parts': [[2015, 12, 17]], 'timestamp': 1450324943688, 'date-time': '2015-12-17T04:02:23Z'}, 'source': 'CrossRef', 'update-to': [{'label': 'Correction', 'updated': {'date-parts': [[2015, 10, 1]], 'timestamp': 1443657600000, 'date-time': '2015-10-01T00:00:00Z'}, 'type': 'correction', 'DOI': '10.1136/bmjopen-2014-006374'}], 'alternative-id': ['10.1136/bmjopen-2014-006374corr1'], 'page': 'e006374corr1', 'title': ['Correction'], 'type': 'journal-article', 'URL': 'http://dx.doi.org/10.1136/bmjopen-2014-006374corr1', 'original-title': [], 'ISSN': ['2044-6055', '2044-6055'], 'content-domain': {'crossmark-restriction': False, 'domain': []}, 'update-policy': 'http://dx.doi.org/10.1136/crossmarkpolicy', 'member': 'http://id.crossref.org/member/239', 'deposited': {'date-parts': [[2015, 10, 29]], 'timestamp': 1446087915000, 'date-time': '2015-10-29T03:05:15Z'}, 'DOI': '10.1136/bmjopen-2014-006374corr1', 'subtitle': [], 'score': 1.0}
+{'reference-count': 0, 'subject': ['Medicine(all)'], 'prefix': 'http://id.crossref.org/prefix/10.1136', 'issued': {'date-parts': [[2015, 10]]}, 'publisher': 'BMJ', 'issue': '10', 'container-title': ['BMJ Open'], 'short-container-title': [], 'created': {'date-parts': [[2015, 10, 29]], 'timestamp': 1446087914000, 'date-time': '2015-10-29T03:05:14Z'}, 'volume': '5', 'short-title': [], 'indexed': {'date-parts': [[2015, 12, 17]], 'timestamp': 1450324943688, 'date-time': '2015-12-17T04:02:23Z'}, 'source': 'CrossRef', 'update-to': [{'label': 'Correction', 'updated': {'date-parts': [[2015, 10, 1]], 'timestamp': 1443657600000, 'date-time': '2015-10-01T00:00:00Z'}, 'type': 'correction', 'DOI': '10.1136/bmjopen-2014-006374'}], 'alternative-id': ['10.1136/bmjopen-2014-006374corr1'], 'page': 'e006374corr1', 'title': ['Correction'], 'type': 'journal-article', 'URL': 'http://dx.doi.org/10.1136/bmjopen-2014-006374corr1', 'original-title': [], 'ISSN': ['2044-6055', '2044-6055'], 'content-domain': {'crossmark-restrict ion': False, 'domain': []}, 'update-policy': 'http://dx.doi.org/10.1136/crossmarkpolicy', 'member': 'http://id.crossref.org/member/239', 'deposited': {'date-parts': [[2015, 10, 29]], 'timestamp': 1446087915000, 'date-time': '2015-10-29T03:05:15Z'}, 'DOI': '10.1136/bmjopen-2014-006374corr1', 'subtitle': [], 'score': 1.0}
 dict_keys(['reference-count', 'subject', 'prefix', 'issued', 'publisher', 'issue', 'container-title', 'short-container-title', 'created', 'volume', 'short-title', 'indexed', 'source', 'update-to', 'alternative-id', 'page', 'title', 'type', 'URL', 'original-title', 'ISSN', 'content-domain', 'update-policy', 'member', 'deposited', 'DOI', 'subtitle', 'score'])
 Traceback (most recent call last):
   File "scrape_bds.py", line 469, in <module>
