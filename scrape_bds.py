@@ -487,8 +487,12 @@ Traceback (most recent call last):
     day = pub_date[2]
 IndexError: list index out of range
 """
-#
-# # Methodological Innovations
-# # Social Science Computer Review
-# ISSN = "0959-8138" # BMJ
-# title_data_to_es(ISSN)
+
+if __name__ == "__main__":
+    dois = get_dois("2053-9517")
+
+    #
+    # # Methodological Innovations
+    # # Social Science Computer Review
+    # ISSN = "0959-8138" # BMJ
+    # title_data_to_es(ISSN)
