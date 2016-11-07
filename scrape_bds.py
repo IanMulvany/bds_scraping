@@ -168,11 +168,6 @@ def get_resolved_url(doi):
     else:
         raise NoRedirectException("doi did not result in a redirect, probably not getting to publisher conent")
 
-def get_sage_article_from_doi(doi):
-    url = get_resolved_url(doi)
-    sage_scraped_article = SageScrapedArticle(url)
-    return sage_scraped_article
-
 def scrape_sage_html(doi):
     url = get_resolved_url(doi)
     sage_scraped_article = SageScrapedArticle(url)
@@ -180,7 +175,7 @@ def scrape_sage_html(doi):
     return formated_article_content
 
 def scrape_plos_content(doi):
-    # type (string) -> bool 
+    # type (string) -> bool
     #TODO: finish this function
     # not implemented yet
     return False
