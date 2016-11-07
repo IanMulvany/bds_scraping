@@ -261,6 +261,45 @@ def push_doi_to_queue(item):
     es.index(index=doi_queue, doc_type="doi_queue", body=request_body, id=doi)
     return True
 
+def get_dois(issn, doi_queue_index):
+    # type(string) -> Dict[string]
+    """
+    use our stored info in es to get the DOIs easily
+    but ... what do we do if we are retreiving 50k dois?
+    """
+    query = {
+            "query": {
+                "filtered": {
+                    "query": {
+                        "match_all": {}
+                        },
+                    "filter":  {
+                "bool": {
+                    "must": {"term" : {"issn": issn}
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+    print(doi_queue)
+    dois = []
+    if has_docs(doi_queue):
+        response = es.search(index=doi_queue_index, body=query, filter_path=['hits.hits._source.DOI'])
+        items = response["hits"]["hits"]
+        for item in items:
+            dois.append(item["_source"]["DOI"])
+        return dois
+    else:
+        raise NoContentInIndexException("there is not content in this index")
+
+def remove_doi_from_queue(doi):
+    """
+    """
+    #TODO: finish this function
+    return False
+
 def push_items_to_es(items):
     """
     send the crossref data into es, and then add a doi to the
@@ -365,40 +404,6 @@ def has_docs(index):
     else:
         return False
 
-def get_dois(issn, doi_queue_index):
-    # type(string) -> Dict[string]
-    """
-    use our stored info in es to get the DOIs easily
-    but ... what do we do if we are retreiving 50k dois?
-    """
-    query = {
-            "query": {
-                "filtered": {
-                    "query": {
-                        "match_all": {}
-                        },
-                    "filter":  {
-                "bool": {
-                    "must": {"term" : {"issn": issn}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    print(doi_queue)
-    dois = []
-    if has_docs(doi_queue):
-        response = es.search(index=doi_queue_index, body=query, filter_path=['hits.hits._source.DOI'])
-        items = response["hits"]["hits"]
-        for item in items:
-            dois.append(item["_source"]["DOI"])
-        return dois
-    else:
-        raise NoContentInIndexException("there is not content in this index")
-
-
 def scrape_content(issn, doi, fulltext_link, resolved_url, url):
     """
     make a decision on which content scraping funtion to use
@@ -418,10 +423,6 @@ def scrape_content(issn, doi, fulltext_link, resolved_url, url):
         # this content yet.
         return False
     return content
-
-def remove_doi_from_queue(doi):
-    #TODO: finish this function
-    return False
 
 def push_scraped_content_into_es(scraped_content):
     """
