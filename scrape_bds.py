@@ -365,7 +365,7 @@ def has_docs(index):
     else:
         return False
 
-def get_dois(issn):
+def get_dois(issn, doi_queue_index):
     # type(string) -> Dict[string]
     """
     use our stored info in es to get the DOIs easily
@@ -390,7 +390,7 @@ def get_dois(issn):
     print(doi_queue)
     dois = []
     if has_docs(doi_queue):
-        response = es.search(index=doi_queue, body=query, sort="timestamp:desc", filter_path=['hits.hits._source.DOI'])
+        response = es.search(index=doi_queue_index, body=query, filter_path=['hits.hits._source.DOI'])
         items = response["hits"]["hits"]
         for item in items:
             dois.append(item["_source"]["DOI"])
@@ -459,7 +459,8 @@ def scrape_content_via_doi(issn, doi):
 
 def scrape_content_via_issn(issn):
     # Type (str) -> None
-    dois = get_dois(issn) # this needs to pull from the queue, and not the title data!
+    doi_queue_index = doi_queue
+    dois = get_dois(issn, doi_queue_index) # this needs to pull from the queue, and not the title data!
     #TODO: ensure my scraping code is working before activating the scraping by doi
     # for doi in dois:
     #     scrape_content_via_doi(issn, doi)
@@ -489,7 +490,7 @@ IndexError: list index out of range
 """
 
 if __name__ == "__main__":
-    dois = get_dois("2053-9517")
+    dois = get_dois("2053-9517", doi_queue_index=doi_queue)
 
     #
     # # Methodological Innovations
