@@ -253,12 +253,12 @@ def map_crossref_bib_to_es(bib_item):
     request_body = infer_earliest_pub_date(bib_item, request_body)
     return request_body
 
-def push_doi_to_queue(item):
+def push_doi_to_queue(item, doi_queue_index):
     request_body = {}
     request_body = get_item_by_key(item, "ISSN", request_body)
     request_body = get_item_by_key(item, "DOI", request_body)
     doi = request_body["DOI"]
-    es.index(index=doi_queue, doc_type="doi_queue", body=request_body, id=doi)
+    es.index(index=doi_queue_index, doc_type="doi_queue", body=request_body, id=doi)
     return True
 
 def get_dois(issn, doi_queue_index):
@@ -294,7 +294,7 @@ def get_dois(issn, doi_queue_index):
     else:
         raise NoContentInIndexException("there is not content in this index")
 
-def remove_doi_from_queue(doi):
+def remove_doi_from_queue(doi, doi_queue_index):
     """
     """
     #TODO: finish this function
@@ -310,7 +310,7 @@ def push_items_to_es(items):
         print(request_body)
         print(request_body) #temporary shitty debugging
         es.index(index=crossref_index, doc_type="crossref_md", body=request_body)
-        push_doi_to_queue(item)
+        push_doi_to_queue(item, doi_queue_index=doi_queue)
     return True
 
 def get_cursor(issn):
