@@ -255,8 +255,12 @@ def map_crossref_bib_to_es(bib_item):
 
 def push_doi_to_queue(item, doi_queue_index):
     # type: (str, str) -> bool
+    """
+    we need to change the ISSN retriveal here to strip the ISSN from being a list item
+    """
     request_body = {}
     request_body = get_item_by_key(item, "ISSN", request_body)
+    request_body["ISSN"] = request_body["ISSN"][0] # pop the ISSN value out of being a list into a simple type! 
     request_body = get_item_by_key(item, "DOI", request_body)
     doi = request_body["DOI"]
     doi_to_queue(doi, doi_queue_index, request_body)
