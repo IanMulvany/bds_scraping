@@ -114,17 +114,19 @@ class SageScrapedArticle(object):
 
     def gen_soup(self):
         """
-        create a bs rep of the article webpage 
+        create a bs rep of the article webpage
         """
         html = r.get(self.url, headers=HEADERS).text
         soup = BeautifulSoup(html, 'html.parser')
         self.soup = soup
 
     def scrape_title(self):
+        "get the artilce title from the webpage"
         title_div = self.soup.findAll("h1", {"class" : "highwire-cite-title"})[0] # assume a unique class, and that this is the first result
         self.title = title_div.contents[0] # The literary uses of high-dimensional space
 
     def scrape_abstract(self):
+        "get the abstract from the webpage"
         abstract = self.soup.findAll("div", {"class" : "section abstract"}, {"id": "abstract-1"})[0] # assume a unique class, and that this is the first result
         abstract_content = abstract.getText()
         abstract_content_stripped = abstract_content.lstrip("Abstract")
