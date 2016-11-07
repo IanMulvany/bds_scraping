@@ -366,6 +366,7 @@ def has_docs(index):
         return False
 
 def get_dois(issn):
+    # type(string) -> Dict[string]
     """
     use our stored info in es to get the DOIs easily
     but ... what do we do if we are retreiving 50k dois?
