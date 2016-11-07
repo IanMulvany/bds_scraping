@@ -2,10 +2,9 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
-import json
+from datetime import datetime
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
-from datetime import datetime
 import settings as settings
 import requests as r
 
@@ -13,7 +12,7 @@ cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX
 doi_queue = settings.DOI_QUEUE
 PLOS_ISSN = settings.PLOS_ISSN
-es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
+ES = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
 
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works
 
@@ -74,12 +73,22 @@ HEADERS = {
 # }
 
 class NoRedirectException(Exception):
+    """
+    unable to follow a redirect from dx.doi.org
+    """
     pass
 
 class NoContentInIndexException(Exception):
+    """
+    an es index is empty
+    """
     pass
 
 class SageScrapedArticle(object):
+    """
+    contains content scraped from SAGE Highwire sites.
+    will need to update once we move over to Atypon
+    """
     def __init__(self, url):
         self.description = "a scraped version of a BDS research article"
         self.title = ""
@@ -104,6 +113,9 @@ class SageScrapedArticle(object):
         self.prep_es_rep()
 
     def gen_soup(self):
+        """
+        create a bs rep of the article webpage 
+        """
         html = r.get(self.url, headers=HEADERS).text
         soup = BeautifulSoup(html, 'html.parser')
         self.soup = soup
@@ -161,7 +173,6 @@ def get_resolved_url(doi):
         for resp in response.history:
             print(resp)
             # need to iterate through to get to the final redirect??
-            #TODO: check if this iteration is required
             status, resp_url = resp.status_code, resp.url
         status, final_url = response.status_code, response.url
         return final_url
@@ -260,7 +271,7 @@ def push_doi_to_queue(item, doi_queue_index):
     """
     request_body = {}
     request_body = get_item_by_key(item, "ISSN", request_body)
-    request_body["ISSN"] = request_body["ISSN"][0] # pop the ISSN value out of being a list into a simple type! 
+    request_body["ISSN"] = request_body["ISSN"][0] # pop the ISSN value out of being a list into a simple type!
     request_body = get_item_by_key(item, "DOI", request_body)
     doi = request_body["DOI"]
     doi_to_queue(doi, doi_queue_index, request_body)
@@ -268,7 +279,7 @@ def push_doi_to_queue(item, doi_queue_index):
 
 def doi_to_queue(doi, doi_queue_index, body):
     # type: (str, str, str) -> bool
-    es.index(index=doi_queue_index, doc_type="doi_queue", body=body, id=doi)
+    ES.index(index=doi_queue_index, doc_type="doi_queue", body=body, id=doi)
     return True
 
 def get_dois(issn, doi_queue_index):
@@ -295,7 +306,7 @@ def get_dois(issn, doi_queue_index):
 
     dois = []
     if has_docs(doi_queue):
-        response = es.search(index=doi_queue_index, body=query)
+        response = ES.search(index=doi_queue_index, body=query)
         items = response["hits"]["hits"]
         for item in items:
             dois.append(item["_id"]) # the doi is the id!
@@ -308,7 +319,7 @@ def remove_doi_from_queue(doi, doi_queue_index):
     """
     removes a specific item with the doi as it's is from the given index
     """
-    es.remove(index=doi_queue_index, id=doi) # not sure if this is right, bit it looks right
+    ES.delete(index=doi_queue_index, id=doi, doc_type="doi_queue") # not sure if this is right, bit it looks right
     return True
 
 def push_items_to_es(items):
@@ -320,7 +331,7 @@ def push_items_to_es(items):
         request_body = map_crossref_bib_to_es(item)
         print(request_body)
         print(request_body) #temporary shitty debugging
-        es.index(index=crossref_index, doc_type="crossref_md", body=request_body)
+        ES.index(index=crossref_index, doc_type="crossref_md", body=request_body)
         push_doi_to_queue(item, doi_queue_index=doi_queue)
     return True
 
@@ -345,7 +356,7 @@ def get_cursor(issn):
     }
 
     if has_docs(cursor_index):
-        response = es.search(index=cursor_index, body=query, sort="timestamp:desc", size=1, filter_path=['hits.hits._source.cursor'])
+        response = ES.search(index=cursor_index, body=query, sort="timestamp:desc", size=1, filter_path=['hits.hits._source.cursor'])
         hit_count = len(response) # we might have an index with values from a different issn, but no cursors stored for the issn that we are currently looking at.
         if hit_count > 0:
             return_cursor = response["hits"]["hits"][0]["_source"]["cursor"]
@@ -365,7 +376,7 @@ def store_cursor(issn, cursor):
         "cursor": cursor,
         'timestamp': datetime.now()
     }
-    es.index(index=cursor_index, doc_type="issn_cursor", body=request_body) # check if we can do this without needing a return value !
+    ES.index(index=cursor_index, doc_type="issn_cursor", body=request_body) # check if we can do this without needing a return value !
     return True
 
 def get_works_endpoint(issn):
@@ -408,18 +419,15 @@ def has_docs(index):
     """
     check if there are documents in a specific index
     """
-    response = es.indices.stats(index=index, metric="docs")
+    response = ES.indices.stats(index=index, metric="docs")
     doc_count = response["indices"][index]["total"]["docs"]["count"]
-    if doc_count > 0:
-        return True
-    else:
-        return False
+    return bool(doc_count) #TODO: learn what this does?
 
 def scrape_content(issn, doi, fulltext_link, resolved_url, url):
     """
     make a decision on which content scraping funtion to use
     based on our info about issn, doi, whehter there is a fulltext
-    link, or other attributes.
+    link, or other attributES.
 
     The returned scraped content is returned as a json representation,
     in the case of the sage content we return sage_scraped_article.es_representation
@@ -435,15 +443,17 @@ def scrape_content(issn, doi, fulltext_link, resolved_url, url):
         return False
     return content
 
-def push_scraped_content_into_es(scraped_content):
-    """
-    push scrapted content into es
-    """
-    #TODO: complete this fucntion
-    return False
+# def push_scraped_content_into_es(scraped_content):
+#     """
+#     push scrapted content into es
+#     """
+#     #TODO: complete this fucntion
+#     return False
 
 def is_scraped(doi):
-    #TODO: check if this article is already in the scraped index
+     return False
+
+def push_scraped_content_into_es(scraped_content):
     return False
 
 def scrape_content_via_doi(issn, doi):
@@ -455,27 +465,19 @@ def scrape_content_via_doi(issn, doi):
         # yay, we already have the fulltext!
         pass
     else:
-        # where do we put the url info? I don't need
-        # the fulltext link for now, I only need the doi and issn at the moment.
-        #
-        # fulltext_link = get_fulltext_link(doi) # don't need this for the time being
-        # url = get_url(doi) # don't need this for the time being
         resolved_url = get_resolved_url(doi) # I only want to generate this when I come to scrape the resource.
         fulltext_link = ""
         url = ""
         scraped_content = scrape_content(issn, doi, fulltext_link, resolved_url, url)
         push_scraped_content_into_es(scraped_content)
-        #TODO: finish the function that pushes the scraped content into es
     # we have now finised working with the DOI so we remove it from the queue
     remove_doi_from_queue(doi)
 
 def scrape_content_via_issn(issn):
     # Type (str) -> None
-    doi_queue_index = doi_queue
-    dois = get_dois(issn, doi_queue_index) # this needs to pull from the queue, and not the title data!
-    #TODO: ensure my scraping code is working before activating the scraping by doi
-    # for doi in dois:
-    #     scrape_content_via_doi(issn, doi)
+    dois = get_dois(issn, doi_queue_index=doi_queue) # this needs to pull from the queue, and not the title data!
+    for doi in dois:
+        scrape_content_via_doi(issn, doi)
 
 ISSN = "2158-2440" # Sage Open
 ISSN = "2053-9517" # BDS
