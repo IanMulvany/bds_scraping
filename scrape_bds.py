@@ -281,7 +281,7 @@ def get_dois(issn, doi_queue_index):
                         },
                     "filter":  {
                 "bool": {
-                    "must": {"term" : {"issn": issn}
+                    "must": {"term" : {"ISSN": issn}
                             }
                         }
                     }
@@ -289,14 +289,12 @@ def get_dois(issn, doi_queue_index):
             }
         }
 
-    print(doi_queue)
     dois = []
     if has_docs(doi_queue):
-        print(es.__dict__)
-        response = es.search(index=doi_queue_index, body=query, filter_path=['hits.hits._source.DOI'])
+        response = es.search(index=doi_queue_index, body=query)
         items = response["hits"]["hits"]
         for item in items:
-            dois.append(item["_source"]["DOI"])
+            dois.append(item["_id"]) # the doi is the id!
         return dois
     else:
         raise NoContentInIndexException("there is not content in this index")
@@ -500,7 +498,8 @@ IndexError: list index out of range
 """
 
 if __name__ == "__main__":
-    dois = get_dois("2053-9517", doi_queue_index=doi_queue)
+    dois = get_dois("2158-2440", doi_queue_index=doi_queue)
+    print(dois)
 
     #
     # # Methodological Innovations
