@@ -180,6 +180,7 @@ def scrape_sage_html(doi):
     return formated_article_content
 
 def scrape_plos_content(doi):
+    # type (string) -> bool 
     #TODO: finish this function
     # not implemented yet
     return False
