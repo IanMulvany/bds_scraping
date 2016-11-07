@@ -286,6 +286,7 @@ def get_dois(issn, doi_queue_index):
     print(doi_queue)
     dois = []
     if has_docs(doi_queue):
+        print(es.__dict__)
         response = es.search(index=doi_queue_index, body=query, filter_path=['hits.hits._source.DOI'])
         items = response["hits"]["hits"]
         for item in items:
@@ -295,10 +296,12 @@ def get_dois(issn, doi_queue_index):
         raise NoContentInIndexException("there is not content in this index")
 
 def remove_doi_from_queue(doi, doi_queue_index):
+    # type(str, str) -> bool
     """
+    removes a specific item with the doi as it's is from the given index
     """
-    #TODO: finish this function
-    return False
+    es.remove(index=doi_queue_index, id=doi) # not sure if this is right, bit it looks right 
+    return True
 
 def push_items_to_es(items):
     """
