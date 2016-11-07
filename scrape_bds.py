@@ -76,6 +76,9 @@ HEADERS = {
 class NoRedirectException(Exception):
     pass
 
+class NoContentInIndexException(Exception):
+    pass
+
 class SageScrapedArticle(object):
     def __init__(self, url):
         self.description = "a scraped version of a BDS research article"
@@ -150,12 +153,13 @@ class SageScrapedArticle(object):
 def get_resolved_url(doi):
     """
     use requests history function to follow redirects from dx.doi.org
-    pass a doi and get back the publihser url for the article (hopefully!)
+    pass a doi and get back the publisher url for the article (hopefully!)
     """
     dx_url = "http://dx.doi.org/" + doi
     response = r.get(dx_url, headers=HEADERS)
     if response.history:
         for resp in response.history:
+            print(resp)
             # need to iterate through to get to the final redirect??
             #TODO: check if this iteration is required
             status, resp_url = resp.status_code, resp.url
@@ -296,14 +300,14 @@ def get_cursor(issn):
 
     if has_docs(cursor_index):
         response = es.search(index=cursor_index, body=query, sort="timestamp:desc", size=1, filter_path=['hits.hits._source.cursor'])
-        hit_count = len(response) # we might have an index with values from a different issn, but no cursirs stored for the issn that we are currently looking at.
+        hit_count = len(response) # we might have an index with values from a different issn, but no cursors stored for the issn that we are currently looking at.
         if hit_count > 0:
             return_cursor = response["hits"]["hits"][0]["_source"]["cursor"]
             return return_cursor
         else:
             return False
     else:
-        return False
+        raise NoContentInIndexException("the supplied index has no content!")
 
 def store_cursor(issn, cursor):
     """
@@ -334,6 +338,7 @@ def get_items(url):
     return items, cursor
 
 def title_data_to_es(issn):
+    # type: (str) -> bool
     """
     push crossref works data into a local ES
     """
@@ -350,8 +355,13 @@ def title_data_to_es(issn):
     # we have paged through the results and we have a final cursor from our searching.
     # we now need to store that cursor for later use.
     store_cursor(issn, last_cursor)
+    return True
 
 def has_docs(index):
+    # type: (str) -> bool
+    """
+    check if there are documents in a specific index
+    """
     response = es.indices.stats(index=index, metric="docs")
     doc_count = response["indices"][index]["total"]["docs"]["count"]
     if doc_count > 0:
@@ -362,9 +372,8 @@ def has_docs(index):
 def get_dois(issn):
     """
     use our stored info in es to get the DOIs easily
-    but ... what do we do if we are retreiving 50k dois
+    but ... what do we do if we are retreiving 50k dois?
     """
-
     query = {
             "query": {
                 "filtered": {
@@ -382,12 +391,15 @@ def get_dois(issn):
         }
 
     dois = []
-    if has_docs(crossref_index):
+    if has_docs(doi_queue):
         response = es.search(index=doi_queue, body=query, sort="timestamp:desc", filter_path=['hits.hits._source.DOI'])
         items = response["hits"]["hits"]
         for item in items:
             dois.append(item["_source"]["DOI"])
-    return dois
+        return dois
+    else:
+        raise NoContentInIndexException("there is not content in this index")
+
 
 def scrape_content(issn, doi, fulltext_link, resolved_url, url):
     """
@@ -447,19 +459,12 @@ def scrape_content_via_doi(issn, doi):
     # we have now finised working with the DOI so we remove it from the queue
     remove_doi_from_queue(doi)
 
-def get_dois_from_issn(issn):
-    """
-    query the queue index based on issn
-    return unscrpaed dois, with any additional info
-    """
-    dois = ["a", "b", "c"]
-    return dois
-
 def scrape_content_via_issn(issn):
     # Type (str) -> None
-    dois = get_dois_from_issn(issn) # this needs to pull from the queue, and not the title data!
-    for doi in dois:
-        scrape_content_via_doi(issn, doi)
+    dois = get_dois(issn) # this needs to pull from the queue, and not the title data!
+    #TODO: ensure my scraping code is working before activating the scraping by doi
+    # for doi in dois:
+    #     scrape_content_via_doi(issn, doi)
 
 ISSN = "2158-2440" # Sage Open
 ISSN = "2053-9517" # BDS
@@ -484,6 +489,8 @@ Traceback (most recent call last):
     day = pub_date[2]
 IndexError: list index out of range
 """
-
-ISSN = "0959-8138" # BMJ
-title_data_to_es(ISSN)
+#
+# # Methodological Innovations
+# # Social Science Computer Review
+# ISSN = "0959-8138" # BMJ
+# title_data_to_es(ISSN)
