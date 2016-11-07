@@ -13,7 +13,7 @@ es = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
 def create_es_index(indexname, mapping):
     exist = es.indices.exists(indexname)
     if not exist:
-        es.indices.create(index=indexname, body=request_body)
+        es.indices.create(index=indexname, body=mapping)
 
 def delete_es_index(indexname):
     es.indices.delete(index=indexname)
@@ -66,7 +66,7 @@ def create_crossref_index(indexname):
         }
     create_es_index(indexname, request_body)
 
-if __name__ == main():
+if __name__ == "__main__":
     create_crossref_index(crossref_index)
     create_doi_queue_index(doi_queue)
     create_cursor_index(cursor_index)

@@ -7,6 +7,14 @@ from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
 import settings as settings
 import requests as r
+from common_functions import get_item_by_key
+from common_functions import index_populated
+from exceptions import NoRedirectException
+from exceptions import NoContentInIndexException
+from es_doi_functions import push_doi_to_queue
+from es_doi_functions import doi_to_queue
+from es_doi_functions import get_dois
+from es_doi_functions import remove_doi_from_queue
 
 cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX
@@ -72,17 +80,6 @@ HEADERS = {
 #     }
 # }
 
-class NoRedirectException(Exception):
-    """
-    unable to follow a redirect from dx.doi.org
-    """
-    pass
-
-class NoContentInIndexException(Exception):
-    """
-    an es index is empty
-    """
-    pass
 
 class SageScrapedArticle(object):
     """
@@ -193,18 +190,6 @@ def scrape_plos_content(doi):
     # not implemented yet
     return False
 
-def get_item_by_key(item, item_key, request_body):
-    ## type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
-    "data may be missing in the crossref deposit, so if it's missing we pass back a nul value"
-    try:
-        # we manage to extract a new value, and we extend the request_body dict
-        item_value = item[item_key]
-        request_body[item_key] = item_value
-        return request_body
-    except:
-        request_body[item_key] = None # what's the python value for null?
-        return request_body
-
 def get_author_by_key(item, item_key, request_body):
     ## type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
     try:
@@ -266,63 +251,6 @@ def map_crossref_bib_to_es(bib_item):
     request_body = infer_earliest_pub_date(bib_item, request_body)
     return request_body
 
-def push_doi_to_queue(item, doi_queue_index):
-    # type: (str, str) -> bool
-    """
-    we need to change the ISSN retriveal here to strip the ISSN from being a list item
-    """
-    request_body = {}
-    request_body = get_item_by_key(item, "ISSN", request_body)
-    request_body["ISSN"] = request_body["ISSN"][0] # pop the ISSN value out of being a list into a simple type!
-    request_body = get_item_by_key(item, "DOI", request_body)
-    doi = request_body["DOI"]
-    doi_to_queue(doi, doi_queue_index, request_body)
-    return True
-
-def doi_to_queue(doi, doi_queue_index, body):
-    # type: (str, str, str) -> bool
-    ES.index(index=doi_queue_index, doc_type="doi_queue", body=body, id=doi)
-    return True
-
-def get_dois(issn, doi_queue_index):
-    # type: (str, str) -> List[str]
-    """
-    use our stored info in es to get the DOIs easily
-    but ... what do we do if we are retreiving 50k dois?
-    """
-    query = {
-            "query": {
-                "filtered": {
-                    "query": {
-                        "match_all": {}
-                        },
-                    "filter":  {
-                "bool": {
-                    "must": {"term" : {"ISSN": issn}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    dois = []
-    if has_docs(doi_queue):
-        response = ES.search(index=doi_queue_index, body=query)
-        items = response["hits"]["hits"]
-        for item in items:
-            dois.append(item["_id"]) # the doi is the id!
-        return dois
-    else:
-        raise NoContentInIndexException("there is not content in this index")
-
-def remove_doi_from_queue(doi, doi_queue_index):
-    # type(str, str) -> bool
-    """
-    removes a specific item with the doi as it's is from the given index
-    """
-    ES.delete(index=doi_queue_index, id=doi, doc_type="doi_queue") # not sure if this is right, bit it looks right
-    return True
 
 def push_items_to_es(items):
     """
@@ -357,7 +285,7 @@ def get_cursor(issn):
         }
     }
 
-    if has_docs(cursor_index):
+    if index_populated(cursor_index):
         response = ES.search(index=cursor_index, body=query, sort="timestamp:desc", size=1, filter_path=['hits.hits._source.cursor'])
         hit_count = len(response) # we might have an index with values from a different issn, but no cursors stored for the issn that we are currently looking at.
         if hit_count > 0:
@@ -416,14 +344,6 @@ def title_data_to_es(issn):
     store_cursor(issn, last_cursor)
     return True
 
-def has_docs(index):
-    # type: (str) -> bool
-    """
-    check if there are documents in a specific index
-    """
-    response = ES.indices.stats(index=index, metric="docs")
-    doc_count = response["indices"][index]["total"]["docs"]["count"]
-    return bool(doc_count) #TODO: learn what this does?
 
 def scrape_content(issn, doi, fulltext_link, resolved_url, url):
     """
