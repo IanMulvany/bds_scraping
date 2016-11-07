@@ -258,7 +258,11 @@ def push_doi_to_queue(item, doi_queue_index):
     request_body = get_item_by_key(item, "ISSN", request_body)
     request_body = get_item_by_key(item, "DOI", request_body)
     doi = request_body["DOI"]
-    es.index(index=doi_queue_index, doc_type="doi_queue", body=request_body, id=doi)
+    doi_to_queue(doi, doi_queue_index, request_body)
+    return True
+
+def doi_to_queue(doi, doi_queue_index, body):
+    es.index(index=doi_queue_index, doc_type="doi_queue", body=body, id=doi)
     return True
 
 def get_dois(issn, doi_queue_index):
@@ -300,7 +304,7 @@ def remove_doi_from_queue(doi, doi_queue_index):
     """
     removes a specific item with the doi as it's is from the given index
     """
-    es.remove(index=doi_queue_index, id=doi) # not sure if this is right, bit it looks right 
+    es.remove(index=doi_queue_index, id=doi) # not sure if this is right, bit it looks right
     return True
 
 def push_items_to_es(items):
