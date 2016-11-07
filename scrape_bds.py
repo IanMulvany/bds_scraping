@@ -163,34 +163,6 @@ class SageScrapedArticle(object):
         #TODO: complete this function
         self.es_representation = {}
 
-def get_resolved_url(doi):
-    """
-    use requests history function to follow redirects from dx.doi.org
-    pass a doi and get back the publisher url for the article (hopefully!)
-    """
-    dx_url = "http://dx.doi.org/" + doi
-    response = r.get(dx_url, headers=HEADERS)
-    if response.history:
-        for resp in response.history:
-            print(resp)
-            # need to iterate through to get to the final redirect??
-            status, resp_url = resp.status_code, resp.url
-        status, final_url = response.status_code, response.url
-        return final_url
-    else:
-        raise NoRedirectException("doi did not result in a redirect, probably not getting to publisher conent")
-
-def scrape_sage_html(doi):
-    url = get_resolved_url(doi)
-    sage_scraped_article = SageScrapedArticle(url)
-    formated_article_content = sage_scraped_article.es_representation
-    return formated_article_content
-
-def scrape_plos_content(doi):
-    # type (string) -> bool
-    #TODO: finish this function
-    # not implemented yet
-    return False
 
 def get_author_by_key(item, item_key, request_body):
     ## type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
@@ -252,7 +224,6 @@ def map_crossref_bib_to_es(bib_item):
     request_body = get_item_by_key(bib_item, "fulltext", request_body)
     request_body = infer_earliest_pub_date(bib_item, request_body)
     return request_body
-
 
 def push_items_to_es(items):
     """
@@ -348,6 +319,36 @@ def title_data_to_es(issn):
 
 
 # scraping related functions
+
+def get_resolved_url(doi):
+    """
+    use requests history function to follow redirects from dx.doi.org
+    pass a doi and get back the publisher url for the article (hopefully!)
+    """
+    dx_url = "http://dx.doi.org/" + doi
+    response = r.get(dx_url, headers=HEADERS)
+    if response.history:
+        for resp in response.history:
+            print(resp)
+            # need to iterate through to get to the final redirect??
+            status, resp_url = resp.status_code, resp.url
+        status, final_url = response.status_code, response.url
+        return final_url
+    else:
+        raise NoRedirectException("doi did not result in a redirect, probably not getting to publisher conent")
+
+def scrape_sage_html(doi):
+    url = get_resolved_url(doi)
+    sage_scraped_article = SageScrapedArticle(url)
+    formated_article_content = sage_scraped_article.es_representation
+    return formated_article_content
+
+def scrape_plos_content(doi):
+    # type (string) -> bool
+    #TODO: finish this function
+    # not implemented yet
+    return False
+
 
 # def push_scraped_content_into_es(scraped_content):
 #     """
