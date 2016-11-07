@@ -148,6 +148,7 @@ class SageScrapedArticle(object):
 
 def get_author_by_key(item, item_key, request_body):
     ## type: (Dict[Any, Any], str, Dict[Any, Any]) -> Dict[Any, Any]
+    "unpack author names from api call"
     try:
         authors = ""
         # we manage to extract a new value, and we extend the request_body dict
@@ -162,19 +163,19 @@ def get_author_by_key(item, item_key, request_body):
             print(authors)
         authors = authors.rstrip(", ")
         request_body[item_key] = authors
-        print(request_body)
-        return request_body
     except:
-        request_body[item_key] = None # what's the python value for null?
-        return request_body
+        request_body[item_key] = None
+    return request_body
 
 def infer_earliest_pub_date(item, request_body):
-    #TODO: complete this function
-    #TODO: name final pub variable
-    #TODO: create a proper time object to put into es
-    print(item)
+    """
+    we look for likeley pub dates in the crossref api call.
+    if we don't find any we pass on as none and hope the try execpt
+    block will pass though to the final return.
+    """
     keys = item.keys()
-    print(keys)
+    # if we have an identifiable pubdate use that
+    # otherwise return None
     if "published-online" in keys:
         pub_date = item["published-online"]["date-parts"][0]
     elif "published-print"  in keys:
@@ -184,15 +185,15 @@ def infer_earliest_pub_date(item, request_body):
     elif "deposited"  in keys:
         pub_date = item["deposited"]["date-parts"][0]
     else:
-        pub = None
+        pub_date = None
+    try: # even though we think we have a valid date, we are going to be defensive here
+        year = pub_date[0]
+        month = pub_date[1]
+        day = pub_date[2]
+        pub = str(year) + "-" + str(month) + "-" + str(day)
         request_body["pub_date"] = pub
-        return request_body
-    year = pub_date[0]
-    month = pub_date[1]
-    day = pub_date[2]
-    pub = str(year) + "-" + str(month) + "-" + str(day)
-    print(pub)
-    request_body["pub_date"] = pub
+    except:
+        request_body["pub_date"] = None
     return request_body
 
 def map_crossref_bib_to_es(bib_item):
@@ -216,7 +217,9 @@ def push_items_to_es(items):
         request_body = map_crossref_bib_to_es(item)
         print(request_body)
         print(request_body) #temporary shitty debugging
-        ES.index(index=crossref_index, doc_type="crossref_md", body=request_body)
+        DOI = request_body["DOI"]
+        # restricting the id to be the DOI constrains us to one item per doi in the db.
+        ES.index(index=crossref_index, doc_type="crossref_md", body=request_body, _id=DOI)
         push_doi_to_queue(item, doi_queue_index=doi_queue)
     return True
 
@@ -226,17 +229,17 @@ def get_cursor(issn):
     """
     query = {
         "query": {
-        "filtered": {
-        "query": {
-          "match_all": {}
-        },
-        "filter":  {
-          "bool": {
-            "must": {"term" : {"issn": issn}
+            "filtered": {
+                "query": {
+                    "match_all": {}
+                    },
+                "filter":  {
+                    "bool": {
+                        "must": {"term" : {"issn": issn}
+                        }
+                    }
+                }
             }
-          }
-        }
-        }
         }
     }
 
@@ -252,6 +255,7 @@ def get_cursor(issn):
         raise NoContentInIndexException("the supplied index has no content!")
 
 def store_cursor(issn, cursor):
+    # type: (str, str) -> bool
     """
     push a paging cursor from crossref into es for retrival when we
     return to continue paging through new articles
@@ -261,10 +265,12 @@ def store_cursor(issn, cursor):
         "cursor": cursor,
         'timestamp': datetime.now()
     }
-    ES.index(index=cursor_index, doc_type="issn_cursor", body=request_body) # check if we can do this without needing a return value !
+    ES.index(index=cursor_index, doc_type="issn_cursor", body=request_body)
     return True
 
 def get_works_endpoint(issn):
+    # type: (str) -> str
+    "construct works endpoing, with option for including cursor or not"
     cursor = get_cursor(issn)
     if cursor:
         url = "http://api.crossref.org/journals/"+issn+"/works?cursor=" + cursor
@@ -273,6 +279,10 @@ def get_works_endpoint(issn):
     return url
 
 def get_items(url):
+    # type: (str) -> str, str
+    """
+    users requestes to get json from crossref that includes the works info based on issn
+    """
     response = r.get(url, headers=HEADERS)
     data = response.json()
     items = data["message"]["items"]
@@ -294,11 +304,10 @@ def title_data_to_es(issn):
         url = "http://api.crossref.org/journals/"+issn+"/works?cursor=" + cursor
         items, cursor = get_items(url)
         push_items_to_es(items)
-    # we have paged through the results and we have a final cursor from our searching.
-    # we now need to store that cursor for later use.
-    store_cursor(issn, last_cursor)
+        # store a cursor from each pagination, in case we want to re-run just a subset of the
+        # calls to the crossref doi
+        store_cursor(issn, last_cursor)
     return True
-
 
 # scraping related functions
 
