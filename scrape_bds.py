@@ -168,6 +168,7 @@ def get_author_by_key(item, item_key, request_body):
     return request_body
 
 def infer_earliest_pub_date(item, request_body):
+    # type: (DICT[ANY, ANY], DICT[ANY, ANY]) -> DICT[ANY, ANY]
     """
     we look for likeley pub dates in the crossref api call.
     if we don't find any we pass on as none and hope the try execpt
@@ -279,7 +280,7 @@ def get_works_endpoint(issn):
     return url
 
 def get_items(url):
-    # type: (str) -> str, str
+    # type: (str) -> (str, str)
     """
     users requestes to get json from crossref that includes the works info based on issn
     """
