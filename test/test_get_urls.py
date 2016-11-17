@@ -9,6 +9,7 @@ from scrape_bds import SageScrapedArticle
 from create_es_indicies import create_doi_queue_index
 from create_es_indicies import delete_es_index
 import responses
+from mock import MagicMock 
 
 def check_existence_in_large_string(host_string, check_string):
     if check_string in host_string:
