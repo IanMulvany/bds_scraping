@@ -5,9 +5,7 @@ from __future__ import unicode_literals
 from datetime import datetime
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
-import settings as settings
-from settings import PLOS_ISSN
-from settings import DOI_QUEUE
+from simple_settings import settings
 import requests as r
 from common_functions import get_item_by_key
 from common_functions import index_populated
@@ -20,8 +18,8 @@ from es_doi_functions import remove_doi_from_queue
 
 cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX
-doi_queue = DOI_QUEUE
-PLOS_ISSN = PLOS_ISSN
+doi_queue = settings.DOI_QUEUE
+PLOS_ISSN = settings.PLOS_ISSN
 ES = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
 
 # Crossref API endpoint = http://api.crossref.org/journals/2053-9517/works

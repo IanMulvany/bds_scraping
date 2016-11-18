@@ -1,4 +1,4 @@
-import settings as settings
+from simple_settings import settings 
 from elasticsearch import Elasticsearch
 
 ES = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])

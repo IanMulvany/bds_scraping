@@ -3,7 +3,7 @@ from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
 from elasticsearch import Elasticsearch
-import settings as settings
+from simple_settings import settings
 
 cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX

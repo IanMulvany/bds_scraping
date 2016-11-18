@@ -1,3 +1,6 @@
+import os
+os.environ["SIMPLE_SETTINGS"] = "test_settings"
+
 import pytest
 from scrape_bds import get_resolved_url
 from scrape_bds import NoRedirectException
@@ -9,7 +12,7 @@ from scrape_bds import SageScrapedArticle
 from create_es_indicies import create_doi_queue_index
 from create_es_indicies import delete_es_index
 import responses
-from mock import MagicMock 
+from mock import MagicMock
 
 def check_existence_in_large_string(host_string, check_string):
     if check_string in host_string:
@@ -58,6 +61,7 @@ def test_get_dois():
     verify
     delete test index
     """
+    #TODO: place creation of test indicies into a setup / fixture, so that will be OK 
     # test data
     print("in test func get dois")
     wrong_dois = ["a","b"]

@@ -1,10 +1,19 @@
+"""
+deals with pushing doi info into and off of the doi queue index in elastic search.
+"""
 from common_functions import get_item_by_key
 from common_functions import index_populated
-import settings as settings
+from simple_settings import settings
+from exceptions import NoRedirectException
+from exceptions import NoContentInIndexException
 from elasticsearch import Elasticsearch
 
-ES = Elasticsearch([{'host': settings.ES_HOST, 'port': settings.ES_PORT}])
-doi_queue = settings.DOI_QUEUE
+DOI_QUEUE = settings.DOI_QUEUE
+ES_HOST = settings.ES_HOST
+ES_PORT = settings.ES_PORT
+
+ES = Elasticsearch([{'host': ES_HOST, 'port': ES_PORT}])
+doi_queue = DOI_QUEUE
 
 def push_doi_to_queue(item, doi_queue_index):
     # type: (str, str) -> bool
@@ -47,7 +56,7 @@ def get_dois(issn, doi_queue_index):
         }
 
     dois = []
-    if index_populated(doi_queue):
+    if index_populated(doi_queue_index):
         response = ES.search(index=doi_queue_index, body=query)
         items = response["hits"]["hits"]
         for item in items:
