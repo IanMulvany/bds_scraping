@@ -2,6 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 from __future__ import unicode_literals
+import logging
+from logging.config import fileConfig
 from datetime import datetime
 from bs4 import BeautifulSoup
 from elasticsearch import Elasticsearch
@@ -15,6 +17,9 @@ from es_doi_functions import push_doi_to_queue
 from es_doi_functions import doi_to_queue
 from es_doi_functions import get_dois
 from es_doi_functions import remove_doi_from_queue
+
+fileConfig('logging_config.ini')
+logger = logging.getLogger()
 
 cursor_index = settings.CURSOR_INDEX
 crossref_index = settings.CROSSREF_INDEX
@@ -214,9 +219,8 @@ def push_items_to_es(items):
     """
     for item in items:
         request_body = map_crossref_bib_to_es(item)
-        print(request_body)
-        print(request_body) #temporary shitty debugging
         DOI = request_body["DOI"]
+        logger.debug("ingesting " + DOI)
         # restricting the id to be the DOI constrains us to one item per doi in the db.
         ES.index(index=crossref_index, doc_type="crossref_md", body=request_body, _id=DOI)
         push_doi_to_queue(item, doi_queue_index=doi_queue)
@@ -264,6 +268,7 @@ def store_cursor(issn, cursor):
         "cursor": cursor,
         'timestamp': datetime.now()
     }
+    logger.debug("stashing the cursor " + cursor)
     ES.index(index=cursor_index, doc_type="issn_cursor", body=request_body)
     return True
 
@@ -425,11 +430,7 @@ IndexError: list index out of range
 """
 
 if __name__ == "__main__":
-    dois = get_dois("2158-2440", doi_queue_index=doi_queue)
-    print(dois)
-
-    #
     # # Methodological Innovations
     # # Social Science Computer Review
-    # ISSN = "0959-8138" # BMJ
-    # title_data_to_es(ISSN)
+    ISSN = "0959-8138" # BMJ
+    title_data_to_es(ISSN)
